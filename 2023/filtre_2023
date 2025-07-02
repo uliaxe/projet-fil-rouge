@@ -1,0 +1,44 @@
+import pandas as pd
+import os
+
+# Chemins fichiers 2023
+chemin_carac = "donnee_accident/Donnee_2023/caracteristiques-2023.csv"
+chemin_lieux = "donnee_accident/Donnee_2023/lieux-2023.csv"
+
+if not os.path.exists(chemin_carac) or not os.path.exists(chemin_lieux):
+    print("❌ Fichier(s) introuvable(s). Vérifie les chemins.")
+    exit()
+
+print("📂 Traitement 2023 en cours...")
+
+try:
+    carac = pd.read_csv(chemin_carac, sep=";", encoding="latin1", on_bad_lines='skip', low_memory=False)
+    lieux = pd.read_csv(chemin_lieux, sep=";", encoding="utf-8", on_bad_lines='skip', low_memory=False)
+except Exception as e:
+    print(f"❌ Erreur lors de la lecture des fichiers : {e}")
+    exit()
+
+try:
+    df = pd.merge(carac, lieux, on="Num_Acc", how="left")
+except KeyError as e:
+    print(f"❌ Problème lors de la fusion : {e}")
+    exit()
+
+# Mise au format des départements Bordeaux + CUB (Gironde)
+df["dep"] = df["dep"].astype(str).str.zfill(3)
+# Codes départements pour Bordeaux + CUB (Gironde = 033, Bordeaux ville = 330)
+depts_bordeaux_cub = ["033", "330"]
+
+df_bordeaux = df[df["dep"].isin(depts_bordeaux_cub)].copy()
+
+try:
+    # Correction des coordonnées (virgules en points)
+    df_bordeaux["lat"] = df_bordeaux["lat"].astype(str).str.replace(",", ".").astype(float)
+    df_bordeaux["long"] = df_bordeaux["long"].astype(str).str.replace(",", ".").astype(float)
+except Exception as e:
+    print(f"⚠️ Erreur lors de la conversion des coordonnées : {e}")
+
+output_file = "accidents_bordeaux_cub_2023.csv"
+df_bordeaux.to_csv(output_file, index=False, encoding="utf-8")
+
+print(f"✅ Export terminé : {len(df_bordeaux)} accidents à Bordeaux + CUB sauvegardés dans '{output_file}'")
